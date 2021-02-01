@@ -37,11 +37,13 @@ class DataLoader():
             # todo: load images and labels
             curr_image = Image.open(self.data_files[current])
             curr_label = Image.open(self.label_files[current])
-
+            h, w = curr_image.size
+            print(h)
+            print(w)
             # ---------------------- Data augmentation ----------------------
             # Flip the image horizontally
-            data_image = curr_image.transpose(Image.FILP_LEFT_RIGHT)
-            label_image = curr_label.transpose(Image.FILP_LEFT_RIGHT)
+            data_image = curr_image.transpose(Image.FLIP_LEFT_RIGHT)
+            label_image = curr_label.transpose(Image.FLIP_LEFT_RIGHT)
 
             # Zoom images, center of the image
             width1, height1 = data_image.size
@@ -65,12 +67,26 @@ class DataLoader():
             data_image = data_image.transpose(Image.ROTATE_90)
             label_image = label_image.transpose(Image.ROTATE_90)
 
+            h, w = data_image.size
+            print(h)
+            print(w)
             # hint: scale images between 0 and 1
             data_image = np.asarray(data_image)
-            data_image /= 255.0
+            print(data_image.max())
+            print(data_image.min())
+            print('here')
+            # print(data_image.shape)
+            temp1 = np.zeros_like(data_image)
+            temp1 = data_image / 255.0
+            data_image = temp1
+            print('image ok')
 
             label_image = np.asarray(label_image)
-            label_image /= 255.0
+            temp2 = np.zeros_like(label_image)
+            temp2 = label_image / 255.0
+            label_image = temp2
+            print('label ok')
+            # label_image /= 255.0
             # hint: if training takes too long or memory overflow, reduce image size!
 
             yield (data_image, label_image)
