@@ -16,15 +16,19 @@ import matplotlib.pyplot as plt
 from model import UNet
 from dataloader import DataLoader
 
+import time
+
+# change the learning rate to 0.001
+
 
 def train_net(net,
-              epochs=5,
+              epochs=10,
               data_dir='data/cells/',
               n_classes=2,
-              lr=0.1,
+              lr=0.001,
               val_percent=0.1,
               save_cp=True,
-              gpu=False):
+              gpu=True):
 
     loader = DataLoader(data_dir)
 
@@ -35,6 +39,7 @@ def train_net(net,
                           momentum=0.99,
                           weight_decay=0.0005)
 
+    start_time = time.time()
     for epoch in range(epochs):
         print('Epoch %d/%d' % (epoch + 1, epochs))
         print('Training...')
@@ -46,15 +51,15 @@ def train_net(net,
         for i, (img, label) in enumerate(loader):
             shape = img.shape
             # print(shape)
+            # print(label.shape)
+
             # todo: create image tensor: (N,C,H,W) - (batch size=1,channels=1,height,width)
             image = torch.tensor(img)
             label = torch.tensor(label)
             image = image.reshape(1, 1, shape[0], shape[1])
             # print(image.shape)
             image = image.to(torch.float32)
-            label = label.to(torch.float32)
-            #image = image.type(torch.DoubleTensor)
-            #label = label.type(torch.DoubleTensor)
+            label = label.to(torch.int)
 
             # todo: load image tensor to gpu
             if gpu:
@@ -64,7 +69,7 @@ def train_net(net,
             # todo: get prediction and getLoss()
             optimizer.zero_grad()
             outputs = net(image)
-            # print(outputs.size)
+            # print(outputs.shape)
             loss = getLoss(outputs, label)
             loss.backward()
             optimizer.step()
@@ -80,22 +85,27 @@ def train_net(net,
             data_dir, 'checkpoints') + '/CP%d.pth' % (epoch + 1))
         print('Checkpoint %d saved !' % (epoch + 1))
         print('Epoch %d finished! - Loss: %.6f' % (epoch + 1, epoch_loss / i))
-
+    end_time = time.time()
+    total_time = end_time - start_time
+    print("Training time: ", total_time)
+    print('Testing!')
     # displays test images with original and predicted masks after training
     loader.setMode('test')
     net.eval()
     with torch.no_grad():
-        for _, (img, label) in enumerate(loader):
+        for i, (img, label) in enumerate(loader):
             shape = img.shape
+            print(shape)
+            print(label.shape)
             img_torch = torch.from_numpy(
                 img.reshape(1, 1, shape[0], shape[1])).float()
             if gpu:
                 img_torch = img_torch.cuda()
             pred = net(img_torch)
-            print(pred.size)
+            print(pred.shape)
             pred_sm = softmax(pred)
-            print(pred_sm.size)
             _, pred_label = torch.max(pred_sm, 1)
+            print(pred_sm.shape)
 
             plt.subplot(1, 3, 1)
             plt.imshow(img * 255.)
@@ -103,7 +113,7 @@ def train_net(net,
             plt.imshow(label * 255.)
             plt.subplot(1, 3, 3)
             plt.imshow(pred_label.cpu().detach().numpy().squeeze() * 255.)
-            plt.savefig('./result.jpg')
+            plt.savefig('./result' + str(i) + '.png')
             plt.show()
 
 
@@ -114,14 +124,12 @@ def getLoss(pred_label, target_label):
 
 def softmax(input):
     # todo: implement softmax function
-    m = nn.Softmax(1)
-    p = m(input)
-
-    # e^(output on channel k for pixel x)
-    #temp = torch.exp(input)
-    #p = temp / torch.sum(temp)
+    # exp(x)/sum(exp(x))
+    temp = torch.exp(input)
     # sum of all output over all channel
-
+    sum_temp = torch.sum(temp, 1)
+    sum_temp = sum_temp.reshape(temp.shape[0], 1, temp.shape[2], temp.shape[3])
+    p = torch.div(temp, sum_temp)
     return p
 
 
@@ -153,7 +161,7 @@ def choose(pred_label, true_labels):
 def get_args():
     parser = OptionParser()
     parser.add_option('-e', '--epochs', dest='epochs',
-                      default=5, type='int', help='number of epochs')
+                      default=10, type='int', help='number of epochs')
     parser.add_option('-c', '--n-classes', dest='n_classes',
                       default=2, type='int', help='number of classes')
     parser.add_option('-d', '--data-dir', dest='data_dir',

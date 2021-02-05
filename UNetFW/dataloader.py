@@ -4,7 +4,7 @@ from os.path import isdir, exists, abspath, join
 import random
 
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageOps
 
 
 class DataLoader():
@@ -32,62 +32,54 @@ class DataLoader():
             endId = len(self.data_files)
 
         while current < endId:
-            current += 1
+            # current += 1
 
             # todo: load images and labels
-            curr_image = Image.open(self.data_files[current])
-            curr_label = Image.open(self.label_files[current])
-            h, w = curr_image.size
-            print(h)
-            print(w)
+            data_image = Image.open(self.data_files[current])
+            label_image = Image.open(self.label_files[current])
+            # print(data_image.size)
+            # print(label_image.size)
+
+
+            # label_image = label_image.resize((388, 388))
+            # hint: if training takes too long or memory overflow, reduce image size!
+            data_image = data_image.resize((572, 572))
+            label_image = label_image.resize((388, 388))
             # ---------------------- Data augmentation ----------------------
-            # Flip the image horizontally
-            data_image = curr_image.transpose(Image.FLIP_LEFT_RIGHT)
-            label_image = curr_label.transpose(Image.FLIP_LEFT_RIGHT)
+            # Randomly flip the image horizontally or vertically
+            rand1 = random.random()
+            if rand1 < 0.5:
+                data_image = data_image.transpose(Image.FLIP_LEFT_RIGHT)
+                label_image = label_image.transpose(Image.FLIP_LEFT_RIGHT)
+            else:
+                data_image = data_image.transpose(Image.FLIP_TOP_BOTTOM)
+                label_image = label_image.transpose(Image.FLIP_TOP_BOTTOM)
 
             # Zoom images, center of the image
-            width1, height1 = data_image.size
-            left1 = width1 / 4
-            top1 = height1 / 4
-            right1 = 3 * width1 / 4
-            bottom1 = 3 * height1 / 4
+            rand2 = random.randint(3, 9)
+            data_shape = data_image.size
+            data_image = ImageOps.crop(data_image, data_image.size[1] // rand2)
 
-            width2, height2 = label_image.size
-            left2 = width2 / 4
-            top2 = height2 / 4
-            right2 = 3 * width2 / 4
-            bottom2 = 3 * height2 / 4
-
-            data_image = data_image.crop((left1, top1, right1, bottom1))
             data_image = data_image.resize((572, 572))
-            label_image = label_image.crop((left2, top2, right2, bottom2))
-            label_image = label_image.resize((572, 572))
+            label_image = ImageOps.crop(
+                label_image, label_image.size[1] // rand2)
+            label_image = label_image.resize((388, 388))
 
             # Rotate images
-            data_image = data_image.transpose(Image.ROTATE_90)
-            label_image = label_image.transpose(Image.ROTATE_90)
+            rand3 = random.random()
+            if rand3 < 0.5:
+                data_image = data_image.transpose(Image.ROTATE_90)
+                label_image = label_image.transpose(Image.ROTATE_90)
+            else:
+                data_image = data_image.transpose(Image.ROTATE_270)
+                label_image = label_image.transpose(Image.ROTATE_270)
 
-            h, w = data_image.size
-            print(h)
-            print(w)
-            # hint: scale images between 0 and 1
-            data_image = np.asarray(data_image)
-            print(data_image.max())
-            print(data_image.min())
-            print('here')
-            # print(data_image.shape)
-            temp1 = np.zeros_like(data_image)
-            temp1 = data_image / 255.0
-            data_image = temp1
-            print('image ok')
+            data_image = np.asarray(data_image, dtype=np.float32)
+            data_image = np.divide(data_image, 255.0)
 
-            label_image = np.asarray(label_image)
-            temp2 = np.zeros_like(label_image)
-            temp2 = label_image / 255.0
-            label_image = temp2
-            print('label ok')
-            # label_image /= 255.0
-            # hint: if training takes too long or memory overflow, reduce image size!
+            label_image = np.asarray(label_image, dtype=np.int)
+            # print(label_image)
+            current += 1
 
             yield (data_image, label_image)
 
